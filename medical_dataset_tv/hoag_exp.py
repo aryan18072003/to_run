@@ -119,16 +119,16 @@ def run_verification():
     # ==========================================
     # 3. PLOTTING
     # ==========================================
-    fig, ax = plt.subplots(1, 3, figsize=(18, 5))
+    fig, ax = plt.subplots(1, 2, figsize=(18, 5))
     
-    # Plot 1: Trajectory
-    ax[0].plot(history['w_star'], label='Current w* (Prediction)', marker='o')
-    ax[0].axhline(y=1.0, color='r', linestyle='--', label='Target (1.0)')
-    ax[0].set_title("Optimization Trajectory (w*)")
-    ax[0].set_xlabel("Step")
-    ax[0].set_ylabel("Value")
-    ax[0].legend()
-    ax[0].grid(True, alpha=0.3)
+    # # Plot 1: Trajectory
+    # ax[0].plot(history['w_star'], label='Current w* (Prediction)', marker='o')
+    # ax[0].axhline(y=1.0, color='r', linestyle='--', label='Target (1.0)')
+    # ax[0].set_title("Optimization Trajectory (w*)")
+    # ax[0].set_xlabel("Step")
+    # ax[0].set_ylabel("Value")
+    # ax[0].legend()
+    # ax[0].grid(True, alpha=0.3)
     
     # Plot 2: Gradient Comparison
     ax[1].plot(history['hoag_grad'], 'b-', label='HOAG Gradient', linewidth=2, alpha=0.7)
@@ -149,13 +149,13 @@ def run_verification():
         l = scalar_dice_loss(w_s, target)
         l_vals.append(l.item())
         
-    ax[2].plot(t_vals, l_vals, 'k-', alpha=0.5, label='Dice Loss Surface')
-    ax[2].scatter(history['theta'], history['outer_loss'], c=np.arange(len(history['theta'])), cmap='viridis', s=50, zorder=5, label='Optimization Path')
-    ax[2].set_title("Optimization on Loss Surface")
-    ax[2].set_xlabel("Theta (Hyperparameter)")
-    ax[2].set_ylabel("Outer Dice Loss")
-    ax[2].legend()
-    ax[2].grid(True, alpha=0.3)
+    ax[0].plot(t_vals, l_vals, 'k-', alpha=0.5, label='Dice Loss Surface')
+    ax[0].scatter(history['theta'], history['outer_loss'], c=np.arange(len(history['theta'])), cmap='viridis', s=50, zorder=5, label='Optimization Path')
+    ax[0].set_title("Optimization on Loss Surface")
+    ax[0].set_xlabel("Theta (Hyperparameter)")
+    ax[0].set_ylabel("Outer Dice Loss")
+    ax[0].legend()
+    ax[0].grid(True, alpha=0.3)
     
     plt.tight_layout()
     plt.savefig("hoag_verification_plot.png")
