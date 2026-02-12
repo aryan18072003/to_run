@@ -102,12 +102,10 @@ def validate(model, val_loader, physics_op, theta=None, steps=0, mode="clean"):
         img, mask = img.to(Config.DEVICE), mask.to(Config.DEVICE)
         
         # --- MODE 1: CLEAN (Upper Bound) ---
-        # The note says: Test on 'x' (Ground Truth)
         if mode == "clean":
             x_in = robust_normalize(img) # Direct Clean Input
         
         # --- MODE 2: NOISY (Lower Bound) ---
-        # The note says: y = Ax + n -> x_rec = A^T y -> Model
         elif mode == "noisy":
             y_clean = physics_op(torch.cat([img, torch.zeros_like(img)], 1))
             y = y_clean + Config.NOISE_SIGMA * torch.randn_like(y_clean)
@@ -173,7 +171,6 @@ def run_experiment():
     
     # ====================================================================
     # PHASE 1: UPPER BOUND (Pre-trained phi_b)
-    # Note says: argmin Sum L(Vnet(x), mask) -> Train on Clean Images
     # ====================================================================
     print("\n--- PHASE 1: Upper Bound (Training on Clean Ground Truth) ---")
     model_upper = UNet().to(Config.DEVICE)
@@ -206,7 +203,6 @@ def run_experiment():
 
     # ====================================================================
     # PHASE 2: LOWER BOUND
-    # Note says: y = Ax + n -> x = A^T y -> phi' -> Dice
     # ====================================================================
     print("\n--- PHASE 2: Lower Bound (Testing Clean Model on Noisy Physics) ---")
     results['Lower Bound'] = validate(model_upper, test_loader, physics, theta=dummy_theta, mode="noisy")
@@ -254,7 +250,11 @@ def run_experiment():
             
             opt_theta.zero_grad()
             val_loss_grad_w = autograd.grad(val_loss, w_star)[0]
-            hyper_grad = compute_hoag_hypergradient(w_star, theta, y, physics, inner_loss_func, val_loss_grad_w)
+            
+            # --- CORRECTED CALL: Included val_loss and tol ---
+            hyper_grad = compute_hoag_hypergradient(
+                w_star, theta, y, physics, inner_loss_func, val_loss, val_loss_grad_w, tol=1e-3
+            )
             
             theta.grad = hyper_grad.clamp(-1.0, 1.0)
             opt_theta.step()
@@ -273,7 +273,7 @@ def run_experiment():
     # ====================================================================
     print("\n--- PHASE 4: Approach 2 (Joint Learning - Theta + U-Net) ---")
     
-    # 1. Start with the Clean Model (but this time, we will train it)
+    # 1. Start with the Clean Model
     model_joint = UNet().to(Config.DEVICE)
     model_joint.load_state_dict(torch.load(ckpt_path)) # Start from clean weights
     opt_model = torch.optim.Adam(model_joint.parameters(), lr=Config.LR_UNET)
@@ -303,7 +303,6 @@ def run_experiment():
                 with torch.no_grad(): w_star.clamp_(0.0, 1.0)
             
             # B. Update U-Net (Outer Step 1)
-            # We train the U-Net on the optimized w*
             w_fixed = w_star.detach().clone().requires_grad_(False)
             x_in = robust_normalize(torch.sqrt(w_fixed[:,0:1]**2 + w_fixed[:,1:2]**2 + 1e-8))
             
@@ -322,7 +321,12 @@ def run_experiment():
             val_loss_grad_w = autograd.grad(val_loss, w_star)[0]
             
             opt_theta.zero_grad()
-            hyper_grad = compute_hoag_hypergradient(w_star, theta, y, physics, inner_loss_func, val_loss_grad_w)
+            
+            # --- CORRECTED CALL: Included val_loss and tol ---
+            hyper_grad = compute_hoag_hypergradient(
+                w_star, theta, y, physics, inner_loss_func, val_loss, val_loss_grad_w, tol=1e-3
+            )
+            
             theta.grad = hyper_grad.clamp(-1.0, 1.0)
             opt_theta.step()
             with torch.no_grad(): theta[0].clamp_(-9.0, -2.0); theta[1].clamp_(-12.0, -2.0)
